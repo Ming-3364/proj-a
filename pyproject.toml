@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tritonlab"
+version = "0.1.0"
+description = "Triton kernel lab: L1 tiling / bank conflict / TTGIR, with a minimal SGLang backend probe"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "torch>=2.4",
+]
+
+[project.optional-dependencies]
+# GPU 侧（Linux + CUDA）。triton 只有 linux 轮子，macOS 装不上——这是本项目的核心约束。
+gpu = ["triton==3.9.0"]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "gpu: 需要 CUDA 设备（本地 Mac 上会被跳过）",
+  "interp: 需要 triton 包，可用 TRITON_INTERPRET=1 在 CPU 上跑",
+]

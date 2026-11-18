@@ -1,0 +1,52 @@
+# 本地 Triton 解释器环境（linux/arm64，Apple Silicon 原生）
+#
+# 为什么需要它：macOS 没有 triton 轮子（PyPI 的 triton 只有 manylinux x86_64/aarch64，
+# wheel 里是 Linux ELF 的 libtriton.so + ptxas，Python 在 macOS 上根本加载不了）。
+# 所以所有「跑 Triton 代码」的动作都在这个 Linux 容器里做，且只能用解释器模式：
+#   TRITON_INTERPRET=1  -> 逐 program 用 numpy/torch 执行，不需要 GPU、不需要 ptxas
+# 局限：不建模内存层级与并行，只保证「算得对」；性能结论一律来自 GPU。
+#
+# 两个踩过的坑，写在这里防止重复踩：
+#   1. Docker Hub 在国内常常不可达 -> 用镜像源作 BASE（可 build-arg 覆盖）
+#   2. torch 会钉死自己的 triton 版本（torch 2.9.1 要 triton 3.5.x），
+#      与本项目要的 3.9.0 冲突 -> torch 用 --no-deps 装，依赖单独补。
+#      （CPU 容器里 torch 不需要 triton 也能正常做张量运算。）
+#
+# 构建：
+#   docker build -f docker/Dockerfile.cpu -t tritonlab-cpu .
+# 运行（镜像持久化，避免每次重装 triton/torch/llvm 约 700MB）：
+#   docker run --rm -v "$PWD":/w -w /w tritonlab-cpu python tests/run_local.py
+
+ARG BASE=docker.m.daocloud.io/library/python:3.12-slim
+FROM ${BASE}
+
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG TORCH_VER=2.9.1
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TRITON_INTERPRET=1
+
+# 层 1：工具链 + triton（aarch64 wheel 约 263MB）
+RUN pip install --index-url "${PIP_INDEX}" numpy pytest \
+ && pip install --index-url "${PIP_INDEX}" "triton==3.9.0"
+
+# 层 2：torch 单独装（--no-deps 避免它把 triton 降级/冲突），依赖手动补齐
+RUN pip install --index-url "${PIP_INDEX}" --no-deps "torch==${TORCH_VER}" \
+ && pip install --index-url "${PIP_INDEX}" filelock typing-extensions sympy networkx jinja2 fsspec
+
+# 层 3：LLVM —— llc 的 NVPTX 后端负责 .ll -> .ptx，纯 CPU 工具，不需要 GPU。
+# 若该镜像的 LLVM 不含 nvptx target，构建会在这里失败（故意做成断言）。
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
+    apt-get update -qq \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends llvm \
+ && rm -rf /var/lib/apt/lists/* \
+ && llc --version | grep -i nvptx
+
+WORKDIR /w
+
+# 冒烟自检：triton 能 import、解释器模式生效、llc 可用
+RUN python -c "import triton, torch; print('triton', triton.__version__, '| torch', torch.__version__)" \
+ && llc --version | head -3
+
+CMD ["python", "tests/run_local.py"]

@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dump/
+*.cubin
+*.ptx
+*.llir
+*.ttgir
+*.ttir
+.venv/
+benchmarks/results/*/raw/
+.buildx/
+.docker-tmp/
+build/
