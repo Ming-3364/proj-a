@@ -77,8 +77,8 @@ python bench/bw_probe.py              # 顺便标定 HBM 带宽，写进 docs/ad
 
 | 项 | 状态 |
 |---|---|
-| S1 前半：`.ll → .ptx → .cubin`（Mac 容器内） | ✅ 已完成，纳入回归（28 passed） |
-| S1 后半：`libcuda` launcher + 上卡执行 | ⚠️ 代码已写，**待首次上卡验证** |
+| S1 前半：`.ll → .ptx → .cubin`（Mac 容器内） | ✅ 已完成，纳入回归 |
+| S1 后半：`libcuda` launcher + 上卡执行 | ✅ 已在 H100 PCIe 上验证通过（68.4 µs，对拍正确） |
 | 分析模型 / 参考实现 / 带宽标定 | ✅ 已有 |
 | S2（TTIR→LLVM）/ S3（前端）/ S4-S6 | ⬜ 未开始 |
 
@@ -88,7 +88,7 @@ python bench/bw_probe.py              # 顺便标定 HBM 带宽，写进 docs/ad
 minitriton/{frontend,ir,passes,codegen,runtime}/   # 编译器本体（逐步落地）
 analysis/      # 编译器的代价模型：smem/occupancy、bank、roofline
 refs/          # torch 参考实现（正确性裁判）
-kernels/       # 手写基线（对照用）
+baseline/      # 手写基线（对照用）
 bench/         # 带宽标定 + 与官方对照
 tests/         # 零依赖 runner + golden 快照
 docs/adr/      # 决策记录（范围、硬件基线）

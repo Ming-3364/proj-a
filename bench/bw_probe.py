@@ -29,9 +29,10 @@ def device_fingerprint() -> dict:
         "name": p.name,
         "compute_capability": f"{p.major}.{p.minor}",
         "sm_count": p.multi_processor_count,
-        "total_memory_gb": round(p.total_memory / 1e9, 2),
+        "total_memory_gib": round(p.total_memory / 1024**3, 2),
     }
     # 字段名随 torch 版本变动，全部走 getattr 兜底
+    unit_div = {"l2_cache_mb": 1024**2, "smem_per_sm_kb": 1024, "smem_per_block_optin_kb": 1024}
     for key, attr in [
         ("l2_cache_mb", "L2_cache_size"),
         ("smem_per_sm_kb", "shared_memory_per_multiprocessor"),
@@ -40,7 +41,7 @@ def device_fingerprint() -> dict:
     ]:
         val = getattr(p, attr, None)
         if val:
-            info[key] = round(val / 1024, 1) if "kb" in key or "mb" in key else val
+            info[key] = round(val / unit_div[key], 1) if key in unit_div else val
     return info
 
 

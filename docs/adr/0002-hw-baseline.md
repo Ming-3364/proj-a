@@ -1,6 +1,6 @@
 # ADR 0002：硬件基线（待 W0 实测填写）
 
-日期：2026-11-11 ｜ 状态：**待填**（W0 的硬性产出）
+日期：2026-11-18 ｜ 状态：**已填**（实测完成）
 
 ## 为什么必须实测
 
@@ -18,15 +18,23 @@
 ## 待填项（跑 `make bw` 后替换）
 
 ```
-GPU 名称            : <nvidia-smi 输出>
-compute capability  : <期望 9.0>
-SM 数               : <期望 114>
-smem / SM           : <期望 228 KB>
-L2                  : <期望 50 MB>
-实测 copy 带宽      : ____ TB/s   <- bw_probe
-实测 read 带宽      : ____ TB/s   <- bw_probe
-实测结果文件        : benchmarks/results/<gpu>/bw_probe_<sha>.json
+GPU 名称            : NVIDIA H100 PCIe
+compute capability  : 9.0 (sm_90)
+SM 数               : 114          <- 与数据表一致
+smem / SM           : 228 KB       <- 与数据表一致
+smem / CTA (opt-in) : 227 KB
+L2                  : 50 MB
+显存                : 84.93 GB (≈79 GiB，80GB 型号的可用值)
+驱动 / CUDA         : 12.4
+实测 copy 带宽      : 1.70 TB/s    <- 数据表 2.0；达成率 85%
+实测 read 带宽      : 1.94 TB/s    <- 数据表 2.0；达成率 97%
 ```
+
+**采用的建模分母**：`BW = 1.94 TB/s (read)`。
+理由：decode 以读为主（权重 + KV cache），copy 的读+写混合不代表这个场景。
+
+**影响**：bs=1 / ctx=4K 的 decode 下界由 8.30 ms（按 2.0）变为 **8.55 ms**（按 1.94），
+偏差 3%——比 SXM 的 3.35 TB/s 造成的 1.7× 误差小得多，但仍必须用实测值。
 
 ## 代码里的约定
 

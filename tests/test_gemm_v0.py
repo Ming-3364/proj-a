@@ -1,5 +1,8 @@
 """GEMM v0 的数值正确性测试。
 
+注意：包名从 kernels 改成 baseline —— `kernels` 是 HuggingFace 的 PyPI 包名，
+在装过 transformers 生态的机器上会被 site-packages 抢走（实测在 H100 机器上炸过）。
+
 - 本地 macOS：import triton 失败 -> SkipTest（这是预期行为，不是失败）
 - Linux 容器：   TRITON_INTERPRET=1 -> 在 CPU 上逐 program 解释执行
 - GPU 机器：     真实编译执行
@@ -19,7 +22,7 @@ def _load_triton():
         import triton  # noqa: F401
     except Exception as e:  # ImportError on macOS，或其它环境问题
         raise unittest.SkipTest(f"triton 不可用（macOS 无轮子）：{e}")
-    from kernels.gemm.v0_naive import matmul
+    from baseline.gemm.v0_naive import matmul
 
     return matmul
 

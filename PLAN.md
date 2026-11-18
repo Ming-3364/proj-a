@@ -158,8 +158,10 @@ GPU：libcuda 加载 cubin → launch → 对拍 torch / 对比官方 Triton / n
 
 **每步的 Definition of Done**：`make test` 全绿 + 上述命令可复现 + （S4 起）一篇差异笔记。
 
-**进度**：S1 的本地一半已完成 —— `make smoke-cubin` 产出 `build/hello.ptx`(838B) 与 `build/hello.cubin`(3128B)，
-并纳入回归（容器内 26 passed）；剩余一半是 `libcuda` launcher 与首次上卡验证。
+**进度**：**S1 已完成（含上卡验证）**。本地 `make smoke-cubin` 产出 `.ptx`/`.cubin`；
+H100 PCIe 上 `scripts/gpu_hello.py --n 1024` → PASS（68.4 µs，输出 `out[i]==i`）。
+顺带完成硬件标定：**read 1.94 TB/s / copy 1.70 TB/s、114 SM、228 KB smem**（见 ADR 0002）。
+下一步：S2（TTIR → LLVM）。
 **每步回退的代价**：S1~S3 任一步失败，只影响该步；S4 之后的失败才可能需要重排里程碑。
 
 ---
@@ -226,7 +228,7 @@ bench/          compare_official.py              # 三方对照（我/官方/tor
 | `analysis/smem_occupancy.py` | **P1 tiling pass 的代价模型** |
 | `analysis/roofline.py` | 判断生成 kernel 离硬件下界多远 |
 | `refs/paged_attention.py` | 生成代码的正确性裁判 |
-| `kernels/gemm/v0_naive.py` | 手写基线（对照"编译器生成 vs 人手写"） |
+| `baseline/gemm/v0_naive.py` | 手写基线（对照"编译器生成 vs 人手写"） |
 | `bench/bw_probe.py` + `docs/adr/0002` | 硬件标定（roofline 分母） |
 | `tests/run_local.py` | 零依赖 runner，继续用 |
 | ~~k0→k4 attention 阶梯~~ | **丢弃**：那是 kernel 工程师的活，不是编译器 |

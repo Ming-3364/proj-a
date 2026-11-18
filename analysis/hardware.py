@@ -23,6 +23,9 @@ __all__ = [
     "H100_PCIE",
     "H100_SXM",
     "MEASURED_TBPS",
+    "MEASURED_COPY_TBPS",
+    "MEASURED_READ_TBPS",
+    "H100_PCIE_MEASURED",
     "set_measured_bandwidth",
 ]
 
@@ -62,8 +65,16 @@ H100_SXM = DeviceSpec(
     tensor_tflops_fp16=989.0,
 )
 
-# W0 实测值容器：None 表示尚未校准，代码里用 `require_measured()` 强制检查
-MEASURED_TBPS: dict[str, float] = {}
+# ---- W0 实测（2026-11-18，H100 PCIe / driver 12.4，bench/bw_probe.py）----
+# copy 1.70 TB/s（读+写）/ read 1.94 TB/s（纯读）
+# decode 以读为主（权重 + KV），所以分母用 read。
+MEASURED_COPY_TBPS = 1.70
+MEASURED_READ_TBPS = 1.94
+
+# 结论性常量：默认就用实测值（数据表 2.0 只作参考）
+H100_PCIE_MEASURED = H100_PCIE.with_measured_bandwidth(MEASURED_READ_TBPS)
+
+MEASURED_TBPS: dict[str, float] = {H100_PCIE.name: MEASURED_READ_TBPS}
 
 
 def set_measured_bandwidth(tbps: float, name: str = H100_PCIE.name) -> DeviceSpec:
