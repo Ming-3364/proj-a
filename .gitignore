@@ -13,3 +13,4 @@ benchmarks/results/*/raw/
 .docker-tmp/
 build/
 mlir/build/
+.DS_Store
