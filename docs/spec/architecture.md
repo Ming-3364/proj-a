@@ -57,7 +57,7 @@
 
 | 决策 | 选择 | 理由 |
 |---|---|---|
-| 是否上 MLIR | **不上**，自己写 IR，但**照抄分层**（TTIR/TTGIR 边界） | 4 周学 MLIR 写不出东西；但分层是 Triton 的精髓，必须复刻 |
+| 是否上 MLIR | **上**，以插件方式接入预编译 MLIR（brew LLVM 20） | Triton 就是 MLIR 工程，1:1 对应；且无需源码构建（`--load-dialect-plugin`） |
 | LLVM IR 怎么发 | **文本 `.ll`**，不用 llvmlite | llvmlite 不含 NVPTX target，发不出 GPU 代码 |
 | 初期用几个 NVVM intrinsic | **1 个**：`llvm.nvvm.barrier0` | mma / cp.async 留 W3，先把链路打通 |
 | TTGIR 先支持几种 layout | **1 种**：blocked（global）+ 固定 swizzle 的 shared | 先保证正确，W3 再让模型枚举 |

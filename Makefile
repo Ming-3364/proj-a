@@ -3,13 +3,14 @@
 PY ?= $(shell for p in python3 $$HOME/miniconda3/bin/python3 /opt/homebrew/bin/python3; do \
 	if $$p -c "import torch" >/dev/null 2>&1; then echo $$p; exit 0; fi; done; echo python3)
 
-.PHONY: help test dev-shell bw gpu-verify smoke smoke-cubin clean
+.PHONY: help test dev-shell bw gpu-verify smoke smoke-cubin mlir-spike clean
 
 help:
 	@echo "make doctor      - 打印解释器/依赖体检（PATH 里可能有多个 python3）"
 	@echo "make test        - 本地纯 CPU 测试（参考实现 / 语义），零依赖"
 	@echo "make smoke       - 本地冒烟：参考实现自检 + 打印版本"
 	@echo "make smoke-cubin - S1：.ll -> .ptx -> .cubin（Mac 上自动走容器，不需要 GPU）"
+	@echo "make mlir-spike  - MLIR 插件：mlir-opt 加载 minittir 方言"
 	@echo "make dev-shell   - 起 linux/arm64 容器（内含 triton，用 TRITON_INTERPRET=1 跑 kernel 正确性）"
 	@echo "make bw          - 实测 HBM 带宽（需 GPU；输出 benchmarks/results/<gpu>/bw_probe.json）"
 	@echo "make gpu-verify  - GPU 侧一键验证（测试 + 带宽 + 冒烟）"
@@ -42,6 +43,9 @@ smoke-cubin:
 	else \
 	  $(PY) -m minitriton.runtime.toolchain tests/fixtures/hello.ll -o build; \
 	fi
+
+mlir-spike:
+	$(MAKE) -C mlir spike
 
 bw:
 	$(PY) bench/bw_probe.py

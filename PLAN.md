@@ -79,7 +79,8 @@ GPU：libcuda 加载 cubin → launch → 对拍 torch / 对比官方 Triton / n
 
 **四个关键决策**：
 
-1. **不上 MLIR，但照抄它的分层**。自己写 IR（Python dataclass），但 TTIR / TTGIR 的边界必须复刻——那是 Triton 的精髓；4 周学 MLIR 只会让你写不出东西。
+1. **上 MLIR**（2026-11-19 决策修订）。dialect 与 pass 一律写 **C++**，以**插件 dylib** 形式加载进 Homebrew 的 `mlir-opt`（已确认支持 `--load-dialect-plugin` / `--load-pass-plugin`）。关键是：brew 的 LLVM 20 已带 `mlir-tblgen` / `mlir-opt` / `mlir-translate` / 头文件 / 329 个 `libMLIR*.dylib`，**不需要从源码构建 LLVM，也不需要 CMake 配置**（brew 包没带 `.cmake`，走 Makefile + 动态符号解析）。
+   这样做的好处：概念与工程实践和 Triton 1:1（Triton 本身就是 MLIR 工程）——ODS 定义 op、`ConversionPattern` 写 lowering、pass pipeline 管编排。代价是工期（见 §5）。
 2. **后端落 LLVM IR，不落 CUDA C**。CUDA C 是 TileLang 式 source-to-source，会跳过 TTGIR 与地址空间/intrinsic/PTX 这些"AI 编译器"真正会被追问的层。
 3. **LLVM 用文本 `.ll`**（不用 llvmlite：它不含 NVPTX target）。好处是 `.ll → .ptx → .cubin` 全在 CPU 上完成，Mac 容器里就能验证。
 4. **MMA 分两步**：W2 先标量循环（无 tensor core，保证"对"），W3 再试 NVVM 的 `mma.sync`/`wmma` intrinsic；`wgmma`（Hopper）列为 stretch。
@@ -158,10 +159,27 @@ GPU：libcuda 加载 cubin → launch → 对拍 torch / 对比官方 Triton / n
 
 **每步的 Definition of Done**：`make test` 全绿 + 上述命令可复现 + （S4 起）一篇差异笔记。
 
-**进度**：**S1 已完成（含上卡验证）**。本地 `make smoke-cubin` 产出 `.ptx`/`.cubin`；
-H100 PCIe 上 `scripts/gpu_hello.py --n 1024` → PASS（68.4 µs，输出 `out[i]==i`）。
-顺带完成硬件标定：**read 1.94 TB/s / copy 1.70 TB/s、114 SM、228 KB smem**（见 ADR 0002）。
-下一步：S2（TTIR → LLVM）。
+**进度**：**S1 已完成（含上卡验证）**。
+
+S1 的闭环（每一步都已被验证）：
+
+```
+手写 hello.ll ──llc──▶ .ptx ──ptxas──▶ .cubin ──libcuda──▶ launch ──▶ sync ──▶ 对拍
+   (22 行)              (文本ISA)      (机器码)     (FFI 层)                       out[i]==i
+```
+
+- H100 PCIe 上 `scripts/gpu_hello.py --n 1024` → **PASS，68.4 µs**（驱动 12.4，sm_90）
+- 本地 `make smoke-cubin` 只到 `.cubin`（不需要 GPU），并纳入回归（容器 28 passed）
+- 副产品：硬件标定 **read 1.94 TB/s / copy 1.70 TB/s、114 SM、228 KB smem**（ADR 0002）
+
+**S1 的定位**：提供一个**已知正确的输入端口**。S2 要做的只是把最左边那一环（手写 `.ll`）
+换成我们 lowering 生成的 `.ll`——右边五个环节原样复用。这就是为什么它排在最前面。
+
+**MLIR spike 已通过（2026-11-19）**：`make mlir-spike` —— brew LLVM 20 的 `mlir-opt` 通过
+`--load-dialect-plugin` 加载我们编的 `libminittir.dylib`，成功解析并打印 `ttir.add`。
+确认 out-of-tree 路线可行：**不需要构建 LLVM、不需要 CMake**（配方与四个坑见 `docs/notes/mlir-setup.md`）。
+
+下一步：S2-R（TTIR op 扩充 → `ttir-to-ttgir` pass → `ttgir-to-llvm`）。
 **每步回退的代价**：S1~S3 任一步失败，只影响该步；S4 之后的失败才可能需要重排里程碑。
 
 ---
