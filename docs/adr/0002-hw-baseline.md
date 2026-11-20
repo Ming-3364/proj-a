@@ -41,3 +41,28 @@ L2                  : 50 MB
 - 所有性能公式只接受 `BW_MEASURED`（常量从本 ADR 读入），不接受硬编码数据表值；
 - 报告中的「带宽达成率」分子是实测有效带宽，分母是**本 ADR 的实测峰值**；
 - 若实测与数据表偏差 > 15%，在报告里单独说明（可能的原因：功耗/时钟设置、NUMA、MIG 等）。
+
+
+## 多设备策略（H100 / A100 切换）
+
+实验会在 **H100 PCIe (sm_90)** 与 **A100 (sm_80)** 之间切换。不同卡不能共用产物：
+
+| 项 | H100 PCIe | A100 80G | 是否影响产物 |
+|---|---|---|---|
+| arch | `sm_90` | `sm_80` | **是**：cubin 与架构绑定，PTX 才向上兼容 |
+| smem / SM | 228 KB | 164 KB | **是**：改变合法 tile 集合 |
+| SM 数 | 114 | 108 | 是：wave quantization / split 启发式 |
+| L2 | 50 MB | 40 MB | 是：L2 tile 复用半径 |
+| HBM | 实测 1.94 TB/s | 待实测（数据表 2.04） | 是：roofline 分母 |
+| MMA | `wgmma` | `mma.sync` | **是**：lowering 的 intrinsic 分叉 |
+| 异步拷贝 | TMA (`cp.async.bulk`) | `cp.async` | 是：pipelining pass 分叉 |
+
+**约定**：
+
+1. 单一事实源是 `analysis/hardware.py` 的 `DeviceSpec`（`resolve()` / `detect()`）。
+2. 所有 arch 相关参数只从 `DeviceSpec.arch` 取，**禁止硬编码 `"sm_90"`**。
+3. 产物按架构分目录：`build/sm_90/`、`build/sm_80/`。
+4. 结果 JSON 按设备分目录：`benchmarks/results/<device-name>/`。
+5. 切换卡的复验命令：`python scripts/gpu_hello.py`（自动识别）或 `--arch sm_80`。
+
+**A100 待办**：跑一次 `python bench/bw_probe.py`，把实测带宽填进 `MEASURED_TBPS`。

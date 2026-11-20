@@ -27,7 +27,7 @@ def _require_tools():
 def test_ll_compiles_to_ptx_and_cubin():
     _require_tools()
     with tempfile.TemporaryDirectory() as d:
-        res = tc.build(FIXTURE, Path(d), cpu="sm_90")
+        res = tc.build(FIXTURE, Path(d), arch="sm_90")
 
         assert res.ptx.exists() and res.ptx.stat().st_size > 0
         assert res.cubin.exists() and res.cubin.stat().st_size > 0, "ptxas 应产出非空 cubin"
@@ -46,8 +46,8 @@ def test_ptx_and_cubin_are_reproducible():
     """同样的输入两次构建应产出字节一致的 cubin（否则无法做 golden 与归因）。"""
     _require_tools()
     with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
-        a = tc.build(FIXTURE, Path(d1), cpu="sm_90")
-        b = tc.build(FIXTURE, Path(d2), cpu="sm_90")
+        a = tc.build(FIXTURE, Path(d1), arch="sm_90")
+        b = tc.build(FIXTURE, Path(d2), arch="sm_90")
         assert a.ptx.read_text() == b.ptx.read_text()
         assert a.cubin.read_bytes() == b.cubin.read_bytes()
 
@@ -68,3 +68,15 @@ def test_missing_llc_error_is_actionable():
                 raise AssertionError("应当抛出 ToolchainError")
     finally:
         tc.find_llc = orig
+
+
+def test_unsupported_arch_is_rejected_with_guidance():
+    """A100/H100 混用时最容易犯的错：给错 arch。报错必须说明可选值与原因。"""
+    try:
+        tc.ll_to_ptx(FIXTURE, Path("/tmp/_x.ptx"), arch="sm_70")
+    except tc.ToolchainError as e:
+        msg = str(e)
+        assert "sm_70" in msg
+        assert "H100 = sm_90" in msg and "A100 = sm_80" in msg
+    else:
+        raise AssertionError("应当拒绝 sm_70")
