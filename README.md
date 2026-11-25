@@ -85,11 +85,12 @@ python bench/bw_probe.py              # 顺便标定 HBM 带宽，写进 docs/ad
 ## 目录
 
 ```
-minitriton/{frontend,ir,passes,codegen,runtime}/   # 编译器本体（逐步落地）
-analysis/      # 编译器的代价模型：smem/occupancy、bank、roofline
-refs/          # torch 参考实现（正确性裁判）
-baseline/      # 手写基线（对照用）
-bench/         # 带宽标定 + 与官方对照
-tests/         # 零依赖 runner + golden 快照
-docs/adr/      # 决策记录（范围、硬件基线）
+mlir/            C++ 方言 + pass（插件注入 stock mlir-opt）
+minitriton/      前端（待建）+ 运行时（toolchain / launch）
+analysis/        代价模型：bank / occupancy / roofline / 设备档案
+baseline/        手写 Triton 基线（对照用）
+bench/ scripts/  GPU 侧测量与端到端脚本
+tests/           全部回归（零依赖 runner）
+docs/            spec / adr / notes
+refs/            上游 Triton 源码副本（只读对照）
 ```

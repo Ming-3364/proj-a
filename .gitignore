@@ -14,3 +14,6 @@ benchmarks/results/*/raw/
 build/
 mlir/build/
 .DS_Store
+
+# 上游 Triton 参考源码（浅克隆，仅作对照基线）
+refs/triton/

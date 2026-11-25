@@ -203,16 +203,21 @@ S1 的闭环（每一步都已被验证）：
 ## 6. 新增目录（其余复用已有代码）
 
 ```
+mlir/                                  # C++：方言 + pass（以插件注入 stock mlir-opt）
+  include/minittir/   TtirOps.td        # 唯一事实源（ODS）
+                      TtirDialect.h  TtirOps.h
+  lib/                TtirDialect.cpp  TtirOps.cpp  Plugin.cpp
+  tests/              spike.mlir        # golden IR
 minitriton/
-  frontend/     ast_parse.py  infer.py           # Triton 子集 → TTIR
-  ttir/         core.py  ops.py  printer.py      # 张量级 IR（无 layout）
-  ttgir/        layout.py  core.py  printer.py   # tile 级 IR（layout/线程/smem）
-  passes/       tiling.py  layout_assign.py  memplan.py   # 三个真决策
-  llvmgen/      lower.py  emit_ll.py             # TTGIR → .ll（标量化+地址空间+barrier）
-  runtime/      toolchain.py  launch.py          # llc/ptxas 调用 + libcuda 加载
-tests/          test_frontend.py  test_passes.py # golden：.ttir/.ttgir/.ll/.ptx
-bench/          compare_official.py              # 三方对照（我/官方/torch）
+  frontend/           ast_parse.py      # Triton 子集 → TTIR 文本（Python 侧只做解析）
+  runtime/            toolchain.py  launch.py
+analysis/                               # 已有：bank/occupancy/roofline = pass 的代价模型
+tests/                                  # golden：.ttir/.ttgir/.ll/.ptx + 全部回归
+bench/              compare_official.py # 三方对照（我/官方/torch）
 ```
+
+> 前端仍然用 Python（只产出 TTIR 文本），所有 IR 操作都在 C++/MLIR 里——这个边界是刻意的：
+> 避免 Python 绑定与 C++ 库版本不一致。
 
 ---
 
